@@ -2,7 +2,7 @@ name: fetch-and-deploy
 
 on:
   schedule:
-    - cron: '*/10 * * * *' # 排程常會延遲，這是正常的
+    - cron: '7,17,27,37,47,57 * * * *' # 避開整點擁擠時段；排程仍可能延遲，這是正常的
   workflow_dispatch: # 可在 Actions 頁面手動執行
   push:
     branches: [main]
@@ -29,6 +29,25 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      # 未來日期的資料每天只在 10、16、22 時更新，用快取避免每次都重抓。
+      # key 以「台北時間的更新時段」命名：同一時段內完全命中、不重抓；跨時段時用 restore-keys 取回舊檔再增量更新。
+      - name: Compute refresh slot
+        id: slot
+        run: |
+          hm=$(TZ=Asia/Taipei date +%H%M)
+          day=$(TZ=Asia/Taipei date +%F)
+          if   [ "$((10#$hm))" -ge 2230 ]; then n=3
+          elif [ "$((10#$hm))" -ge 1630 ]; then n=2
+          elif [ "$((10#$hm))" -ge 1030 ]; then n=1
+          else n=0; fi
+          echo "key=$day-$n" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: .cache/future
+          key: future-seats-${{ steps.slot.outputs.key }}
+          restore-keys: future-seats-
 
       - name: Fetch seat data from TDX
         run: node scripts/fetch_seats.mjs
