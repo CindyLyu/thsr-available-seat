@@ -68,6 +68,24 @@
     outline-offset: 2px;
   }
   .date { margin-bottom: 12px; }
+  /* 往下滑時固定住日期與起訖站；固定後收掉小標籤以節省空間 */
+  #sentinel { height: 1px; }
+  .bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    margin: 0 -16px;
+    padding: 8px 16px 12px;
+    background: var(--paper);
+  }
+  .bar.stuck { box-shadow: 0 2px 6px rgba(22, 34, 46, .15); padding-bottom: 8px; }
+  .bar.stuck label { display: none; }
+  .bar.stuck .date { margin-bottom: 8px; }
+  /* 寬螢幕：日期與起訖站排同一列 */
+  @media (min-width: 640px) {
+    .bar { display: grid; grid-template-columns: 190px 1fr; gap: 12px; align-items: end; }
+    .date, .bar.stuck .date { margin-bottom: 0; }
+  }
   .opts[hidden] { display: none; }
   .opts { margin: 12px 0 0; font-size: .95rem; }
   .opts label { display: inline-flex; gap: 8px; align-items: center; color: var(--ink); font-size: inherit; margin: 0; }
@@ -123,6 +141,8 @@
   <p class="meta">查詢今天起 28 天內台灣高鐵各班次的剩餘座位。選好日期、起站與迄站，即可看到每班車標準車廂與商務車廂是「尚有座位」、「座位有限」或「已售完」。</p>
   <noscript><p class="warn">此頁面需要啟用 JavaScript 才能顯示即時餘位。</p></noscript>
 
+  <div id="sentinel" aria-hidden="true"></div>
+  <div class="bar" id="bar">
   <div class="date">
     <label for="date">日期</label>
     <select id="date"></select>
@@ -138,6 +158,7 @@
       <label for="to">迄站</label>
       <select id="to"></select>
     </div>
+  </div>
   </div>
 
   <p class="opts" id="upcoming-wrap">
@@ -294,6 +315,12 @@ function init() {
   });
 
   dateEl.addEventListener('change', () => loadDay(dateEl.value));
+
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(([e]) => {
+      $('bar').classList.toggle('stuck', !e.isIntersecting);
+    }).observe($('sentinel'));
+  }
 
   fetch('data/index.json', { cache: 'no-store' })
     .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
