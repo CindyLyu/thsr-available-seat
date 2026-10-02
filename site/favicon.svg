@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#f26b1d"/>
+  <!-- 椅背 -->
+  <path d="M20 14c0-2 1.5-3.500 3.500-3.500h4c2 0 3.500 1.500 3.500 3.500l4 26H17z" fill="#fff"/>
+  <!-- 座墊 -->
+  <rect x="14" y="38" width="38" height="10" rx="5" fill="#fff"/>
+  <!-- 椅腳 -->
+  <rect x="29" y="48" width="6" height="8" fill="#fff"/>
+</svg>
