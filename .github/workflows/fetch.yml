@@ -1,0 +1,46 @@
+name: fetch-and-deploy
+
+on:
+  schedule:
+    - cron: '*/10 * * * *' # 排程常會延遲，這是正常的
+  workflow_dispatch: # 可在 Actions 頁面手動執行
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時只跑一個，新的進來時取消舊的
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch seat data from TDX
+        run: node scripts/fetch_seats.mjs
+        env:
+          TDX_CLIENT_ID: ${{ secrets.TDX_CLIENT_ID }}
+          TDX_CLIENT_SECRET: ${{ secrets.TDX_CLIENT_SECRET }}
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
