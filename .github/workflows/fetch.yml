@@ -2,7 +2,7 @@ name: fetch-and-deploy
 
 on:
   schedule:
-    - cron: '7,17,27,37,47,57 * * * *' # 避開整點擁擠時段；排程仍可能延遲，這是正常的
+    - cron: '7,37 * * * *' # 每 30 分鐘（TDX 基礎會員每月只有 3 點）；主要由外部服務觸發，這個只當備援
   workflow_dispatch: # 可在 Actions 頁面手動執行
   push:
     branches: [main]
@@ -12,10 +12,10 @@ permissions:
   pages: write
   id-token: write
 
-# 同時只跑一個，新的進來時取消舊的
+# 同時只跑一個；抓資料因為有呼叫間隔會跑幾分鐘，所以排隊等待而不是取消正在跑的
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -45,21 +45,27 @@ jobs:
 
       - uses: actions/cache@v4
         with:
-          path: .cache/future
+          path: .cache
           key: future-seats-${{ steps.slot.outputs.key }}
           restore-keys: future-seats-
 
       - name: Fetch seat data from TDX
+        id: fetch
         run: node scripts/fetch_seats.mjs
         env:
           TDX_CLIENT_ID: ${{ secrets.TDX_CLIENT_ID }}
           TDX_CLIENT_SECRET: ${{ secrets.TDX_CLIENT_SECRET }}
+          # 夜間（台北 06:00 前）排程會略過不抓；但 push 程式碼時一定要重新部署，所以強制執行
+          FORCE: ${{ github.event_name == 'push' && '1' || '' }}
 
       - uses: actions/configure-pages@v5
+        if: steps.fetch.outputs.skip != 'true'
 
       - uses: actions/upload-pages-artifact@v3
+        if: steps.fetch.outputs.skip != 'true'
         with:
           path: site
 
       - id: deployment
+        if: steps.fetch.outputs.skip != 'true'
         uses: actions/deploy-pages@v4

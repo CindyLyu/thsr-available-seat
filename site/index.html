@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>高鐵餘票查詢｜高鐵剩餘座位即時查詢</title>
-<meta name="description" content="免登入查詢今天起 28 天內台灣高鐵各班次剩餘座位：選擇起訖站，一眼看出標準車廂與商務車廂是尚有座位、座位有限或已售完。資料來自交通部 TDX，今天的班次約每 10 分鐘更新。">
+<meta name="description" content="免登入查詢今天起兩週內台灣高鐵各班次剩餘座位：選擇起訖站，一眼看出標準車廂與商務車廂是尚有座位、座位有限或已售完。資料來自交通部 TDX，今天的班次約每 30 分鐘更新。">
 <meta name="robots" content="index,follow">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="canonical" href="https://cindylyu.github.io/thsr-available-seat/">
@@ -13,10 +13,10 @@
 <meta property="og:url" content="https://cindylyu.github.io/thsr-available-seat/">
 <meta property="og:locale" content="zh_TW">
 <meta property="og:title" content="高鐵餘票查詢｜高鐵剩餘座位">
-<meta property="og:description" content="選擇起訖站，查看今天起 28 天內高鐵各班次標準車廂與商務車廂的剩餘座位狀態。">
+<meta property="og:description" content="選擇起訖站，查看今天起兩週內高鐵各班次標準車廂與商務車廂的剩餘座位狀態。">
 <meta name="twitter:card" content="summary">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebApplication","name":"高鐵餘票查詢","inLanguage":"zh-Hant","applicationCategory":"TravelApplication","operatingSystem":"Any","description":"查詢今天起 28 天內台灣高鐵各班次標準車廂與商務車廂的剩餘座位狀態。","offers":{"@type":"Offer","price":"0","priceCurrency":"TWD"}}
+{"@context":"https://schema.org","@type":"WebApplication","name":"高鐵餘票查詢","inLanguage":"zh-Hant","applicationCategory":"TravelApplication","operatingSystem":"Any","description":"查詢今天起兩週內台灣高鐵各班次標準車廂與商務車廂的剩餘座位狀態。","offers":{"@type":"Offer","price":"0","priceCurrency":"TWD"}}
 </script>
 <style>
   :root {
@@ -138,7 +138,7 @@
 <body>
 <main>
   <h1>高鐵餘票查詢</h1>
-  <p class="meta">查詢今天起 28 天內台灣高鐵各班次的剩餘座位。選好日期、起站與迄站，即可看到每班車標準車廂與商務車廂是「尚有座位」、「座位有限」或「已售完」。</p>
+  <p class="meta">查詢今天起兩週內台灣高鐵各班次的剩餘座位。選好日期、起站與迄站，即可看到每班車標準車廂與商務車廂是「尚有座位」、「座位有限」或「已售完」。</p>
   <noscript><p class="warn">此頁面需要啟用 JavaScript 才能顯示即時餘位。</p></noscript>
 
   <div id="sentinel" aria-hidden="true"></div>
@@ -171,7 +171,7 @@
   <div class="board" id="board" aria-live="polite"></div>
 
   <p class="note">
-    餘位只有「尚有座位／座位有限／已售完」三種狀態，沒有實際張數。今天的資料約每 10 分鐘更新；未來日期約每天 10、16、22 時更新。
+    餘位只有「尚有座位／座位有限／已售完」三種狀態，沒有實際張數。今天的資料在營運時段約每 30 分鐘更新；未來日期約每天更新 1 到 3 次，離今天越遠更新越少。
     實際訂位請至<a href="https://www.thsrc.com.tw/" target="_blank" rel="noopener">台灣高鐵官網</a>。
     資料來源：交通部 TDX 運輸資料流通服務。
   </p>
@@ -188,7 +188,7 @@ const STATIONS = [
   ['1047', '雲林'], ['1050', '嘉義'], ['1060', '台南'], ['1070', '左營'],
 ];
 const LABEL = { O: '尚有座位', L: '座位有限', X: '已售完', N: '未知' };
-const STALE_MIN = 45;
+const STALE_MIN = 90; // 今天的資料約每 30 分鐘更新，超過 90 分鐘才算過期
 
 const $ = (id) => document.getElementById(id);
 const fromEl = $('from'), toEl = $('to'), dateEl = $('date');
@@ -277,7 +277,10 @@ function render() {
   }
 }
 
-const isToday = () => index != null && dateEl.value === index.today;
+// 「今天」以使用者端的台北時間為準（凌晨沒有新部署時，index.json 的 today 可能還是昨天）
+const todayStr = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
+const taipeiHour = () => Number(new Date().toLocaleString('en-GB', { timeZone: 'Asia/Taipei', hour: '2-digit', hour12: false }));
+const isToday = () => dateEl.value === todayStr();
 
 function dateLabel(date, today) {
   const [y, m, d] = date.split('-').map(Number);
@@ -326,8 +329,11 @@ function init() {
     .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then((idx) => {
       index = idx;
-      for (const d of idx.dates) dateEl.add(new Option(dateLabel(d, idx.today), d));
-      loadDay(idx.today);
+      const today = todayStr();
+      const dates = idx.dates.filter((d) => d >= today); // 凌晨還沒部署新資料時，濾掉已經過去的日子
+      if (dates.length === 0) throw new Error('no dates');
+      for (const d of dates) dateEl.add(new Option(dateLabel(d, today), d));
+      loadDay(dates.includes(today) ? today : dates[0]);
     })
     .catch(() => {
       $('meta').textContent = '讀取不到餘位資料，請稍後重新整理。';
@@ -351,7 +357,8 @@ function loadDay(date) {
       $('meta').textContent = `資料更新時間：${fmt(d.fetchedAt)}`;
       // 只有今天的資料會頻繁更新，才檢查是否過期
       const ageMin = (Date.now() - Date.parse(d.fetchedAt)) / 60000;
-      if (isToday() && ageMin > STALE_MIN) {
+      // 只有今天、而且在營運時段才檢查；凌晨伺服器本來就不抓資料
+      if (isToday() && taipeiHour() >= 6 && ageMin > STALE_MIN) {
         const w = $('stale');
         w.hidden = false;
         w.textContent = `這份資料已超過 ${Math.floor(ageMin)} 分鐘沒有更新，餘位可能已經變動，請以高鐵官網為準。`;

@@ -4,7 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 const IDS = ['0990', '1000', '1010', '1020', '1030', '1035', '1040', '1043', '1047', '1050', '1060', '1070'];
 const pick = (i) => ['O', 'O', 'L', 'X', null][((i % 5) + 5) % 5];
 const hhmm = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-const DAYS = 8;
+const DAYS = 15; // 今天 + 未來 14 天
 
 const today = new Date(Date.now() + 8 * 3600e3);
 const ymd = (d) => d.toISOString().slice(0, 10);
